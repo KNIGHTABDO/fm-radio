@@ -26,6 +26,7 @@ export default function Home() {
     setPlayerState,
     setTrack,
     setIsPlaying,
+    selectedPlaylist,
   } = useStore()
 
 
@@ -72,6 +73,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!accessToken) return
+    if (selectedPlaylist) return
     if (trackUri && playerState.track?.name !== 'Tuning In...') return
 
     const genres = [
@@ -93,7 +95,16 @@ export default function Home() {
         }
       })
       .catch(() => {})
-  }, [accessToken, trackUri, playerState.track, setTrack, setPlayerState])
+  }, [accessToken, selectedPlaylist, trackUri, playerState.track, setTrack, setPlayerState])
+
+  useEffect(() => {
+    if (!accessToken) return
+    if (!playerState.isReady) return
+    if (!selectedPlaylist) return
+
+    spotifyPlayer.setShuffle(true).catch(() => {})
+    spotifyPlayer.playContext(selectedPlaylist.uri).catch(() => {})
+  }, [accessToken, playerState.isReady, selectedPlaylist])
 
   // 1. Initial/Refresh narration & Milestone narration
   const milestonesRef = useRef<Set<number>>(new Set())
@@ -141,6 +152,7 @@ export default function Home() {
     if (!playerState.isReady) return
     if (!trackId || !trackUri) return
     if (playerState.track?.name === 'Tuning In...') return // Don't trigger end logic for placeholder
+    if (selectedPlaylist) return
     
     // Trigger slightly before end (8s) or if the track has naturally stopped (remainingMs <= 0)
     const isNearEnd = remainingMs > 0 && remainingMs < 8000
@@ -210,7 +222,7 @@ export default function Home() {
         endSequenceRef.current = '' // Allow retry
       }
     })()
-  }, [accessToken, playerState.isReady, playerState.isPaused, trackId, trackUri, remainingMs, triggerEvent, playerState.track, setTrack, setPlayerState])
+  }, [accessToken, playerState.isReady, playerState.isPaused, selectedPlaylist, trackId, trackUri, remainingMs, triggerEvent, playerState.track, setTrack, setPlayerState])
 
   if (!session) {
     return (

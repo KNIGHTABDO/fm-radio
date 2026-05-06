@@ -6,6 +6,8 @@ const scopes = [
   'user-modify-playback-state',
   'user-read-currently-playing',
   'streaming',
+  'playlist-read-private',
+  'playlist-read-collaborative',
   'user-read-email',
   'user-read-private',
 ].join(' ')
