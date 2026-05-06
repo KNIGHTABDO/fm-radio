@@ -19,7 +19,7 @@ const handler = NextAuth({
         url: 'https://accounts.spotify.com/authorize',
         params: { 
           scope: scopes,
-          redirect_uri: 'http://127.0.0.1:3000/api/auth/callback/spotify',
+          redirect_uri: `${process.env.NEXTAUTH_URL?.replace(/\/$/, '') || 'http://localhost:3000'}/api/auth/callback/spotify`,
         },
       },
     }),
