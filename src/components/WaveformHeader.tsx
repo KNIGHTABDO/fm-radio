@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
+import { audioEngine } from '@/lib/audio'
 import SiriWave from 'siriwave'
 import { signOut } from 'next-auth/react'
 
@@ -10,6 +11,7 @@ export default function WaveformHeader() {
   const [currentTime, setCurrentTime] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const siriWaveRef = useRef<any>(null)
+  const lastSizeRef = useRef<{ width: number; height: number } | null>(null)
 
   useEffect(() => {
     const updateTime = () => {
@@ -30,42 +32,90 @@ export default function WaveformHeader() {
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Initialize SiriWave
-    siriWaveRef.current = new SiriWave({
-      container: containerRef.current,
-      width: containerRef.current.offsetWidth,
-      height: 300,
-      style: 'ios9',
-      amplitude: isPlaying ? 1.5 : 0.2,
-      speed: 0.15,
-      autostart: true,
-    })
+    const el = containerRef.current
 
-    const handleResize = () => {
-      if (siriWaveRef.current && containerRef.current) {
-        siriWaveRef.current.width = containerRef.current.offsetWidth
-        siriWaveRef.current.height = 300
+    const ensureWave = () => {
+      const rect = el.getBoundingClientRect()
+      const nextWidth = Math.max(1, Math.floor(rect.width))
+      const nextHeight = Math.max(1, Math.floor(rect.height))
+
+      const last = lastSizeRef.current
+      if (last && last.width === nextWidth && last.height === nextHeight && siriWaveRef.current) {
+        return
+      }
+
+      if (siriWaveRef.current) {
+        siriWaveRef.current.dispose()
+      }
+
+      siriWaveRef.current = new SiriWave({
+        container: el,
+        style: 'ios',
+        width: nextWidth,
+        height: nextHeight,
+        cover: true,
+        ratio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+        speed: 0.12,
+        amplitude: 0.15,
+        frequency: 4,
+        color: '#fff',
+        autostart: true,
+      })
+
+      lastSizeRef.current = { width: nextWidth, height: nextHeight }
+    }
+
+    ensureWave()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', ensureWave)
+      return () => {
+        window.removeEventListener('resize', ensureWave)
+        if (siriWaveRef.current) {
+          siriWaveRef.current.dispose()
+        }
       }
     }
 
-    window.addEventListener('resize', handleResize)
+    const ro = new ResizeObserver(() => ensureWave())
+    ro.observe(el)
 
     return () => {
-      window.removeEventListener('resize', handleResize)
+      ro.disconnect()
       if (siriWaveRef.current) {
         siriWaveRef.current.dispose()
       }
     }
   }, []) // Initialize once
 
-  // Update amplitude when playing or speaking changes
   useEffect(() => {
     if (siriWaveRef.current) {
-      const targetAmplitude = djStatus.isSpeaking ? 2.5 : (isPlaying ? 1.2 : 0.1)
+      if (djStatus.isSpeaking) return
+      const targetAmplitude = isPlaying ? 0.8 : 0.15
       siriWaveRef.current.setAmplitude(targetAmplitude)
-      siriWaveRef.current.setSpeed(djStatus.isSpeaking ? 0.3 : 0.15)
+      siriWaveRef.current.setSpeed(isPlaying ? 0.12 : 0.04)
     }
   }, [isPlaying, djStatus.isSpeaking])
+
+  useEffect(() => {
+    if (!djStatus.isSpeaking) return
+    if (!siriWaveRef.current) return
+
+    siriWaveRef.current.setSpeed(0.18)
+
+    let rafId: number | null = null
+    const tick = () => {
+      const level = audioEngine.getDJLevel01()
+      const amp = Math.max(0.2, Math.min(3.2, 0.2 + level * 3.0))
+      siriWaveRef.current?.setAmplitude(amp)
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+
+    return () => {
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [djStatus.isSpeaking])
 
   return (
     <header className="waveform-header">
@@ -115,12 +165,15 @@ export default function WaveformHeader() {
           inset: 0;
           width: 100%;
           height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           opacity: 0.9;
           z-index: 1;
-          transform: translateY(30px);
+          pointer-events: none;
+        }
+
+        .siri-container :global(canvas) {
+          display: block;
+          width: 100% !important;
+          height: 100% !important;
         }
 
         .status-bar {
@@ -196,21 +249,6 @@ export default function WaveformHeader() {
           color: #fff;
           font-size: 8px;
           padding: 3px 6px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: 700;
-          letter-spacing: 1px;
-          transition: background 0.2s;
-        }
-          pointer-events: auto;
-        }
-
-        .signout-btn {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #fff;
-          font-size: 10px;
-          padding: 4px 8px;
           border-radius: 4px;
           cursor: pointer;
           font-weight: 700;

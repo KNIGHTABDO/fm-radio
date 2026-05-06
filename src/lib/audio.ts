@@ -2,6 +2,8 @@ export class AudioEngine {
   private ctx: AudioContext | null = null
   private spotifyGain: GainNode | null = null
   private djGain: GainNode | null = null
+  private djAnalyser: AnalyserNode | null = null
+  private djMeterData: Uint8Array<ArrayBuffer> | null = null
   private isInitialized = false
 
   async init(): Promise<void> {
@@ -10,9 +12,13 @@ export class AudioEngine {
     this.ctx = new AudioContext()
     this.spotifyGain = this.ctx.createGain()
     this.djGain = this.ctx.createGain()
+    this.djAnalyser = this.ctx.createAnalyser()
+    this.djAnalyser.fftSize = 512
+    this.djMeterData = new Uint8Array(new ArrayBuffer(this.djAnalyser.fftSize))
 
     this.spotifyGain.connect(this.ctx.destination)
-    this.djGain.connect(this.ctx.destination)
+    this.djGain.connect(this.djAnalyser)
+    this.djAnalyser.connect(this.ctx.destination)
 
     this.spotifyGain.gain.value = 1.0
     this.djGain.gain.value = 1.0
@@ -93,11 +99,28 @@ export class AudioEngine {
     this.spotifyGain.gain.setValueAtTime(volume, this.ctx.currentTime)
   }
 
+  getDJLevel01(): number {
+    if (!this.djAnalyser || !this.djMeterData) return 0
+
+    this.djAnalyser.getByteTimeDomainData(this.djMeterData)
+
+    let sumSq = 0
+    for (let i = 0; i < this.djMeterData.length; i++) {
+      const v = (this.djMeterData[i] - 128) / 128
+      sumSq += v * v
+    }
+
+    const rms = Math.sqrt(sumSq / this.djMeterData.length)
+    return Math.max(0, Math.min(1, rms * 2.2))
+  }
+
   dispose(): void {
     if (this.ctx) {
       this.ctx.close()
       this.ctx = null
     }
+    this.djAnalyser = null
+    this.djMeterData = null
     this.isInitialized = false
   }
 }
