@@ -357,25 +357,25 @@ export default function Home() {
           }
 
           .main-content {
-            position: relative;
+            flex-direction: row;
             overflow: hidden;
             background: #000;
           }
 
           .card-wrapper {
             margin-top: 0;
-            position: absolute;
-            inset: 0;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            padding: 92px 92px 80px;
+            padding: 88px 88px 80px 0;
+            flex: 0 0 min(660px, 58%);
           }
         }
 
         @media (min-width: 1024px) {
           .card-wrapper {
-            padding: 98px 110px 86px;
+            padding: 92px 110px 86px 0;
+            flex-basis: min(720px, 60%);
           }
         }
       `}</style>

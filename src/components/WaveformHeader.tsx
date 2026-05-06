@@ -352,8 +352,9 @@ export default function WaveformHeader() {
         @media (min-width: 768px) {
           .waveform-header {
             height: 100%;
-            position: absolute;
-            inset: 0;
+            position: relative;
+            top: auto;
+            flex: 1;
           }
 
           .status-bar {
