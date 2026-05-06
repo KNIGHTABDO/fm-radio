@@ -2,16 +2,25 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { audioEngine } from '@/lib/audio'
 import SiriWave from 'siriwave'
 import { signOut } from 'next-auth/react'
 
+type SpotifySegment = {
+  start: number
+  duration: number
+  loudness_start: number
+  loudness_max: number
+}
+
 export default function WaveformHeader() {
-  const { isPlaying, djStatus } = useStore()
+  const { isPlaying, playerState } = useStore()
   const [currentTime, setCurrentTime] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const siriWaveRef = useRef<any>(null)
   const lastSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const accessTokenRef = useRef<string | null>(null)
+  const segmentsRef = useRef<SpotifySegment[] | null>(null)
+  const lastLevelRef = useRef<number>(0)
 
   useEffect(() => {
     const updateTime = () => {
@@ -89,33 +98,90 @@ export default function WaveformHeader() {
   }, []) // Initialize once
 
   useEffect(() => {
-    if (siriWaveRef.current) {
-      if (djStatus.isSpeaking) return
-      const targetAmplitude = isPlaying ? 0.8 : 0.15
-      siriWaveRef.current.setAmplitude(targetAmplitude)
-      siriWaveRef.current.setSpeed(isPlaying ? 0.12 : 0.04)
+    const loadSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session')
+        const session = await response.json()
+        accessTokenRef.current = session?.accessToken || null
+      } catch {
+        accessTokenRef.current = null
+      }
     }
-  }, [isPlaying, djStatus.isSpeaking])
+    loadSession()
+  }, [])
 
   useEffect(() => {
-    if (!djStatus.isSpeaking) return
+    const trackId = playerState.track?.id
+    const token = accessTokenRef.current
+    if (!trackId || !token) {
+      segmentsRef.current = null
+      return
+    }
+
+    const loadAnalysis = async () => {
+      try {
+        const url = `/api/spotify/audio-analysis?id=${encodeURIComponent(trackId)}&token=${encodeURIComponent(token)}`
+        const response = await fetch(url)
+        if (!response.ok) {
+          segmentsRef.current = null
+          return
+        }
+        const data = await response.json()
+        const segments = Array.isArray(data?.segments) ? (data.segments as SpotifySegment[]) : null
+        segmentsRef.current = segments && segments.length ? segments : null
+      } catch {
+        segmentsRef.current = null
+      }
+    }
+
+    loadAnalysis()
+  }, [playerState.track?.id])
+
+  useEffect(() => {
     if (!siriWaveRef.current) return
 
-    siriWaveRef.current.setSpeed(0.18)
-
-    let rafId: number | null = null
-    const tick = () => {
-      const level = audioEngine.getDJLevel01()
-      const amp = Math.max(0.2, Math.min(3.2, 0.2 + level * 3.0))
-      siriWaveRef.current?.setAmplitude(amp)
-      rafId = requestAnimationFrame(tick)
+    if (!isPlaying || playerState.isPaused) {
+      siriWaveRef.current.setAmplitude(0.15)
+      siriWaveRef.current.setSpeed(0.04)
+      return
     }
-    rafId = requestAnimationFrame(tick)
 
-    return () => {
-      if (rafId != null) cancelAnimationFrame(rafId)
+    const segments = segmentsRef.current
+    if (!segments || !segments.length) {
+      siriWaveRef.current.setAmplitude(0.6)
+      siriWaveRef.current.setSpeed(0.12)
+      return
     }
-  }, [djStatus.isSpeaking])
+
+    const t = playerState.positionMs / 1000
+
+    let lo = 0
+    let hi = segments.length - 1
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      const seg = segments[mid]
+      if (t < seg.start) hi = mid - 1
+      else if (t >= seg.start + seg.duration) lo = mid + 1
+      else {
+        lo = mid
+        break
+      }
+    }
+
+    const seg = segments[Math.min(Math.max(lo, 0), segments.length - 1)]
+    const p = Math.max(0, Math.min(1, (t - seg.start) / Math.max(0.001, seg.duration)))
+    const loudness = seg.loudness_start + (seg.loudness_max - seg.loudness_start) * p
+
+    const level01 = Math.max(0, Math.min(1, (loudness + 60) / 60))
+    const shaped = Math.pow(level01, 1.7)
+    const targetAmp = 0.25 + shaped * 2.6
+
+    const smoothed = lastLevelRef.current * 0.85 + targetAmp * 0.15
+    lastLevelRef.current = smoothed
+
+    siriWaveRef.current.setAmplitude(Math.max(0.2, Math.min(3.2, smoothed)))
+    siriWaveRef.current.setSpeed(0.12)
+  }, [isPlaying, playerState.isPaused, playerState.positionMs])
 
   return (
     <header className="waveform-header">
