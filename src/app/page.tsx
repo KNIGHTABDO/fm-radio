@@ -332,6 +332,52 @@ export default function Home() {
           display: flex;
           flex-direction: column;
         }
+
+        @media (min-width: 768px) {
+          .app-stage {
+            padding: 24px;
+          }
+
+          .app-shell {
+            width: min(1024px, 94vw);
+            height: min(740px, 92vh);
+            background: #000;
+            border-radius: 64px;
+            box-shadow: 0 70px 140px -30px rgba(0,0,0,0.65);
+          }
+
+          .app-shell::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            pointer-events: none;
+            z-index: 50;
+          }
+
+          .main-content {
+            position: relative;
+            overflow: hidden;
+            background: #000;
+          }
+
+          .card-wrapper {
+            margin-top: 0;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 92px 92px 80px;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .card-wrapper {
+            padding: 98px 110px 86px;
+          }
+        }
       `}</style>
     </div>
   )

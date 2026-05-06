@@ -504,6 +504,31 @@ export default function TrackCard() {
             max-width: 120px;
           }
         }
+
+        @media (min-width: 768px) {
+          .card {
+            border-radius: 34px;
+            padding: 44px 44px 38px;
+            max-height: 640px;
+            width: min(560px, 46vw);
+            box-shadow: 0 70px 140px -90px rgba(0,0,0,0.75);
+          }
+
+          .title {
+            font-size: 54px;
+            line-height: 1.02;
+            letter-spacing: -0.8px;
+            margin-bottom: 12px;
+          }
+
+          .subtitle-row {
+            margin-bottom: 26px;
+          }
+
+          .player-row {
+            margin-bottom: 28px;
+          }
+        }
       `}</style>
     </div>
   )
