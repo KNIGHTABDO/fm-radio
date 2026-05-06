@@ -2,6 +2,7 @@
 
 import { useStore } from '@/lib/store'
 import Transcript from './Transcript'
+import { spotifyPlayer } from '@/lib/spotify'
 
 export default function TrackCard() {
   const { playerState, djStatus, setIsPlaying } = useStore()
@@ -16,7 +17,7 @@ export default function TrackCard() {
     durationMs: 243000,
   }
 
-  const progress = (positionMs / track.durationMs) * 100
+  const progress = track.durationMs > 0 ? (positionMs / track.durationMs) * 100 : 0
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000)
@@ -26,7 +27,35 @@ export default function TrackCard() {
   }
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying)
+    if (playerState.isReady) {
+      spotifyPlayer.togglePlay()
+    } else {
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  const handlePrev = () => {
+    if (playerState.isReady) {
+      spotifyPlayer.seek(0)
+    }
+  }
+
+  const handleNext = () => {
+    // For now, just restart. Queue logic would go here
+    if (playerState.isReady) {
+      spotifyPlayer.seek(0)
+    }
+  }
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percentage = x / rect.width
+    const seekPosition = Math.floor(percentage * track.durationMs)
+    
+    if (playerState.isReady) {
+      spotifyPlayer.seek(seekPosition)
+    }
   }
 
   return (
@@ -35,59 +64,84 @@ export default function TrackCard() {
         Claudio&apos;s Late Night Sessions
       </div>
 
-      <h1 className="track-title">
-        {track.name}
-      </h1>
+      <div className="track-info">
+        {track.albumArt && (
+          <div className="album-art-container">
+            <img
+              src={track.albumArt}
+              alt={`${track.album} cover`}
+              className="album-art"
+            />
+          </div>
+        )}
+        <div className="track-text">
+          <h1 className="track-title">
+            {track.name}
+          </h1>
 
-      <div className="artist-row">
-        <span className="artist-name">
-          {track.artist}
-        </span>
-        <a href="#" className="apple-music-link">
-          Listen on Apple Music
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M7 17L17 7M17 7H7M17 7V17" />
-          </svg>
-        </a>
+          <div className="artist-row">
+            <span className="artist-name">
+              {track.artist}
+            </span>
+            <a href="#" className="apple-music-link">
+              Listen on Apple Music
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M7 17L17 7M17 7H7M17 7V17" />
+              </svg>
+            </a>
+          </div>
+        </div>
       </div>
 
       <div className="progress-row">
-        <button
-          onClick={handlePlayPause}
-          className="play-button"
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-              <rect x="6" y="4" width="4" height="16" />
-              <rect x="14" y="4" width="4" height="16" />
+        <div className="play-controls">
+          <button onClick={handlePrev} className="control-btn prev" aria-label="Previous">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
             </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-              <polygon points="5,3 19,12 5,21" />
+          </button>
+
+          <button
+            onClick={handlePlayPause}
+            className="play-button"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <polygon points="5,3 19,12 5,21" />
+              </svg>
+            )}
+          </button>
+
+          <button onClick={handleNext} className="control-btn next" aria-label="Next">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/>
             </svg>
-          )}
-        </button>
+          </button>
+        </div>
 
         <div className="progress-bar-container">
-          <div className="progress-bar-bg">
+          <span className="time-display start">{formatTime(positionMs)}</span>
+          <div className="progress-bar-bg" onClick={handleSeek}>
             <div
               className="progress-bar-fill"
               style={{ width: `${progress}%` }}
             />
           </div>
+          <span className="time-display end">{formatTime(track.durationMs)}</span>
         </div>
-
-        <span className="time-display">
-          {formatTime(positionMs)} / {formatTime(track.durationMs)}
-        </span>
       </div>
 
       <div className="dj-status">
@@ -131,28 +185,57 @@ export default function TrackCard() {
           color: var(--text-muted);
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          margin-bottom: 8px;
+          margin-bottom: 16px;
+        }
+
+        .track-info {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .album-art-container {
+          flex-shrink: 0;
+        }
+
+        .album-art {
+          width: 120px;
+          height: 120px;
+          border-radius: 8px;
+          object-fit: cover;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          transition: transform 0.3s ease;
+        }
+
+        .album-art:hover {
+          transform: scale(1.02);
+        }
+
+        .track-text {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
 
         .track-title {
           font-family: var(--font-display);
-          font-size: 28px;
+          font-size: 32px;
           font-weight: 400;
           color: var(--text-dark);
-          margin-bottom: 8px;
-          line-height: 1.2;
+          margin: 0 0 8px;
+          line-height: 1.1;
         }
 
         .artist-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 24px;
         }
 
         .artist-name {
           font-family: var(--font-body);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 300;
           color: var(--text-muted);
         }
@@ -163,6 +246,11 @@ export default function TrackCard() {
           font-weight: 500;
           color: var(--text-muted);
           text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .apple-music-link:hover {
+          opacity: 0.7;
         }
 
         .apple-music-link svg {
@@ -171,15 +259,38 @@ export default function TrackCard() {
         }
 
         .progress-row {
+          margin-bottom: 16px;
+        }
+
+        .play-controls {
           display: flex;
           align-items: center;
-          gap: 16px;
-          margin-bottom: 8px;
+          justify-content: center;
+          gap: 20px;
+          margin-bottom: 16px;
+        }
+
+        .control-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 8px;
+          color: var(--text-muted);
+          opacity: 0.5;
+          transition: opacity 0.2s, transform 0.15s;
+        }
+
+        .control-btn:hover {
+          opacity: 1;
+        }
+
+        .control-btn:active {
+          transform: scale(0.95);
         }
 
         .play-button {
-          width: 36px;
-          height: 36px;
+          width: 48px;
+          height: 48px;
           border-radius: 50%;
           background: var(--text-dark);
           border: none;
@@ -187,36 +298,57 @@ export default function TrackCard() {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
+          transition: transform 0.15s, opacity 0.2s;
         }
 
         .play-button:hover {
-          opacity: 0.9;
+          transform: scale(1.05);
+        }
+
+        .play-button:active {
+          transform: scale(0.98);
         }
 
         .progress-bar-container {
-          flex: 1;
-          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .time-display {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--text-muted);
+          flex-shrink: 0;
+          min-width: 36px;
+        }
+
+        .time-display.start {
+          text-align: right;
+        }
+
+        .time-display.end {
+          text-align: left;
         }
 
         .progress-bar-bg {
-          height: 3px;
+          flex: 1;
+          height: 4px;
           background: #e0e0e0;
           border-radius: 2px;
           overflow: hidden;
+          cursor: pointer;
+          transition: height 0.15s ease;
+        }
+
+        .progress-bar-bg:hover {
+          height: 6px;
         }
 
         .progress-bar-fill {
           height: 100%;
           background: var(--text-dark);
           transition: width 1s linear;
-        }
-
-        .time-display {
-          font-family: var(--font-mono);
-          font-size: 12px;
-          color: var(--text-muted);
-          flex-shrink: 0;
         }
 
         .dj-status {
@@ -255,6 +387,17 @@ export default function TrackCard() {
             padding: 20px;
           }
 
+          .track-info {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .album-art {
+            width: 100%;
+            height: 200px;
+            border-radius: 12px;
+          }
+
           .track-title {
             font-size: 24px;
           }
@@ -263,14 +406,6 @@ export default function TrackCard() {
             flex-direction: column;
             align-items: flex-start;
             gap: 8px;
-          }
-
-          .progress-row {
-            gap: 12px;
-          }
-
-          .time-display {
-            font-size: 11px;
           }
         }
       `}</style>

@@ -12,7 +12,7 @@ const BASE_HEIGHTS = [
 ]
 
 export default function WaveformHeader() {
-  const { isPlaying, tweakSettings, setTweaksPanelOpen, tweaksPanelOpen } = useStore()
+  const { isPlaying, tweakSettings, setTweaksPanelOpen, tweaksPanelOpen, djStatus } = useStore()
   const [barHeights, setBarHeights] = useState(BASE_HEIGHTS)
   const [currentTime, setCurrentTime] = useState('')
   const [isMobile, setIsMobile] = useState(false)
@@ -75,11 +75,32 @@ export default function WaveformHeader() {
     `,
   }
 
+  const isSpeaking = djStatus.isSpeaking
+
   return (
     <header className="waveform-header" style={headerStyle}>
       <nav className="nav-row">
         <div className="nav-left">
-          <div className="avatar">C</div>
+          <div className={`avatar ${isSpeaking ? 'speaking' : ''}`}>
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <defs>
+                <linearGradient id="avatarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#4a4a5a" />
+                  <stop offset="100%" stopColor="#2a2a35" />
+                </linearGradient>
+                <mask id="avatarMask">
+                  <circle cx="18" cy="18" r="16" fill="white" />
+                </mask>
+              </defs>
+              <circle cx="18" cy="18" r="16" fill="url(#avatarGradient)" />
+              <g mask="url(#avatarMask)">
+                <ellipse cx="18" cy="14" rx="7" ry="8" fill="#1a1a22" />
+                <path d="M8 32 Q18 20 28 32" fill="#1a1a22" />
+              </g>
+              <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+            </svg>
+            {isSpeaking && <span className="speaking-ring" />}
+          </div>
           <span className="nav-label">Claudio</span>
         </div>
 
@@ -143,14 +164,31 @@ export default function WaveformHeader() {
           width: 36px;
           height: 36px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #2a2a35 0%, #1a1a22 100%);
-          border: 2px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-family: var(--font-mono);
-          font-size: 14;
-          color: rgba(255, 255, 255, 0.7);
+          position: relative;
+          transition: transform 0.3s ease;
+        }
+
+        .avatar.speaking {
+          transform: scale(1.1);
+        }
+
+        .speaking-ring {
+          position: absolute;
+          inset: -4px;
+          border-radius: 50%;
+          border: 2px solid var(--accent);
+          animation: speakingPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes speakingPulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.4;
+            transform: scale(1.15);
+          }
         }
 
         .nav-label {
@@ -212,7 +250,6 @@ export default function WaveformHeader() {
           .avatar {
             width: 32px;
             height: 32px;
-            font-size: 12px;
           }
 
           .nav-label {

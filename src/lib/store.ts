@@ -12,6 +12,7 @@ interface AppState {
   }
   isPlaying: boolean
   tweaksPanelOpen: boolean
+  volume: number
 
   setPlayerState: (state: Partial<PlayerState>) => void
   setTrack: (track: SpotifyTrack) => void
@@ -26,6 +27,7 @@ interface AppState {
   setTweakSettings: (settings: Partial<{ hue1: number; hue2: number; blur: number }>) => void
   setIsPlaying: (playing: boolean) => void
   setTweaksPanelOpen: (open: boolean) => void
+  setVolume: (volume: number) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -48,6 +50,7 @@ export const useStore = create<AppState>((set) => ({
   },
   isPlaying: false,
   tweaksPanelOpen: false,
+  volume: 0.8,
 
   setPlayerState: (state) =>
     set((prev) => ({
@@ -91,4 +94,5 @@ export const useStore = create<AppState>((set) => ({
     })),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setTweaksPanelOpen: (tweaksPanelOpen) => set({ tweaksPanelOpen }),
+  setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
 }))
