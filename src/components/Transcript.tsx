@@ -108,6 +108,28 @@ export default function Transcript() {
           line-height: 1.45;
           color: #1f2937;
         }
+
+        @media (min-width: 768px) {
+          .transcript-container {
+            margin-top: 22px;
+            height: 176px;
+          }
+
+          .transcript {
+            border-radius: 22px;
+            padding: 18px 20px;
+          }
+
+          .transcript-label {
+            font-size: 14px;
+          }
+          .transcript-meta {
+            font-size: 14px;
+          }
+          .transcript-text {
+            font-size: 16px;
+          }
+        }
       `}</style>
     </div>
   )

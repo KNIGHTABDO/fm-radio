@@ -348,6 +348,36 @@ export default function WaveformHeader() {
             display: none;
           }
         }
+
+        @media (min-width: 768px) {
+          .waveform-header {
+            height: 100%;
+            position: absolute;
+            inset: 0;
+          }
+
+          .status-bar {
+            padding: 32px 46px;
+          }
+
+          .status-center {
+            display: none;
+          }
+
+          .avatar {
+            width: 30px;
+            height: 30px;
+          }
+
+          .name {
+            font-size: 32px;
+          }
+
+          .paused-label {
+            top: 70px;
+            left: 72px;
+          }
+        }
       `}</style>
     </header>
   )
