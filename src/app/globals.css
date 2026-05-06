@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:ital,wght@0,300;0,400;0,500&family=DM+Sans:wght@300;500;600&display=swap');
+
+:root {
+  --bg: #080810;
+  --card: #f8f8f5;
+  --card-sub: #f0f0ee;
+  --text-dark: #111111;
+  --text-muted: rgba(17, 17, 17, 0.45);
+  --text-future: rgba(17, 17, 17, 0.30);
+  --white-wave: rgba(255, 255, 255, 0.85);
+  --accent: #4ade80;
+  --accent-highlight: rgba(74, 222, 128, 0.22);
+  --hue1: 256deg;
+  --hue2: 330deg;
+  --blur: 71px;
+
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text-dark);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent-highlight);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 17, 17, 0.3);
+}
