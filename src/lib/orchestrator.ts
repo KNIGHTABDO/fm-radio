@@ -28,7 +28,8 @@ export const orchestrator = new DJOrchestrator()
 export async function handleDJEvent(
   event: DJEvent,
   transcript: TranscriptEntry[],
-  track: SpotifyTrack
+  track: SpotifyTrack,
+  opts?: { signal?: AbortSignal }
 ): Promise<string | null> {
   if (!orchestrator.shouldSpeak(event)) {
     return null
@@ -39,6 +40,7 @@ export async function handleDJEvent(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, transcript, track }),
+      signal: opts?.signal,
     })
 
     if (!response.ok) {

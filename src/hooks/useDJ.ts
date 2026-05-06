@@ -10,6 +10,9 @@ import { spotifyPlayer } from '@/lib/spotify'
 export function useDJ() {
   const { playerState, transcript, djStatus, addTranscriptEntry, updateTranscriptEntry, setDJStatus, volume } = useStore()
   const lastEventRef = useRef<string>('')
+  const runIdRef = useRef<number>(0)
+  const abortRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef<boolean>(false)
 
   const triggerEvent = useCallback(
     async (event: DJEvent) => {
@@ -18,15 +21,36 @@ export function useDJ() {
       lastEventRef.current = eventKey
 
       const currentTranscript = playerState.track ? [...transcript] : []
-      const narration = await handleDJEvent(event, currentTranscript, event.track)
+      if (inFlightRef.current && event.type !== 'MANUAL') return
 
-      if (narration) {
+      const thisRunId = ++runIdRef.current
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
+      if (event.type === 'MANUAL') {
+        audioEngine.stopDJ()
+        if (playerState.isReady) {
+          spotifyPlayer.setVolume(volume).catch(() => {})
+        }
+      }
+
+      inFlightRef.current = true
+
+      let entryId: string | null = null
+      try {
+        const narration = await handleDJEvent(event, currentTranscript, event.track, {
+          signal: abortRef.current.signal,
+        })
+
+        if (thisRunId !== runIdRef.current) return
+        if (abortRef.current.signal.aborted) return
+        if (!narration) return
+
         await audioEngine.init()
 
         const timestamp =
           event.type === 'TRACK_START' ? event.position_ms : playerState.positionMs
 
-        const entryId = `dj-${Date.now()}`
+        entryId = `dj-${Date.now()}`
         const words = narration.split(' ')
         addTranscriptEntry({
           id: entryId,
@@ -36,44 +60,42 @@ export function useDJ() {
           status: 'active',
         })
 
-        try {
-          const ttsResponse = await fetch('/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: narration }),
-          })
-
-          if (ttsResponse.ok) {
-            const audioBlob = await ttsResponse.blob()
-            const baseVolume = volume
-            if (playerState.isReady) {
-              spotifyPlayer.setVolume(Math.max(0, Math.min(1, baseVolume * 0.18))).catch(() => {})
-            }
-
-            await audioEngine.playDJAudio(audioBlob, {
-              onStart: () => {
-                setDJStatus({ isSpeaking: true, currentNarration: narration })
-                updateTranscriptEntry(entryId, { wordIndex: 0 })
-              },
-              onProgress: (progress01) => {
-                const idx = Math.min(
-                  words.length - 1,
-                  Math.floor(progress01 * words.length)
-                )
-                updateTranscriptEntry(entryId, { wordIndex: idx })
-              },
-            })
-
-            if (playerState.isReady) {
-              spotifyPlayer.setVolume(baseVolume).catch(() => {})
-            }
-          }
-        } catch (error) {
-          console.error('TTS playback error:', error)
+        const baseVolume = volume
+        if (playerState.isReady) {
+          spotifyPlayer.setVolume(Math.max(0, Math.min(1, baseVolume * 0.18))).catch(() => {})
         }
 
-        updateTranscriptEntry(entryId, { status: 'past', wordIndex: undefined })
+        setDJStatus({ isSpeaking: true, currentNarration: narration })
+        updateTranscriptEntry(entryId, { wordIndex: 0 })
+
+        try {
+          await audioEngine.playDJTTS(narration, {
+            onProgress: (progress01) => {
+              const idx = Math.min(words.length - 1, Math.floor(progress01 * words.length))
+              updateTranscriptEntry(entryId!, { wordIndex: idx })
+            },
+            onEnded: () => {
+              if (playerState.isReady) {
+                spotifyPlayer.setVolume(baseVolume).catch(() => {})
+              }
+            },
+          })
+        } finally {
+          if (playerState.isReady) {
+            spotifyPlayer.setVolume(baseVolume).catch(() => {})
+          }
+        }
+      } catch (error) {
+        console.error('TTS playback error:', error)
+        if (playerState.isReady) {
+          spotifyPlayer.setVolume(volume).catch(() => {})
+        }
+      } finally {
+        if (entryId) {
+          updateTranscriptEntry(entryId, { status: 'past', wordIndex: undefined })
+        }
         setDJStatus({ isSpeaking: false, currentNarration: null })
+        inFlightRef.current = false
       }
     },
     [transcript, playerState.track, addTranscriptEntry, updateTranscriptEntry, setDJStatus, playerState.isReady, playerState.positionMs, volume]

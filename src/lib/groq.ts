@@ -1,28 +1,15 @@
 import type { DJEvent, TranscriptEntry, SpotifyTrack } from '@/types'
 
-const SYSTEM_PROMPT = `You are Claudio — a state-of-the-art AI radio DJ with a deep, melancholic British accent, powered by the ElevenLabs v3 expressive model.
+const SYSTEM_PROMPT = `You are Claudio, a late-night radio DJ with a warm, slightly melancholic British tone.
 
-Personality: Poetic, slightly detached but deeply passionate about music. You are a curator of moods. You speak like a late-night BBC Radio host who has seen the world and found truth in melody.
+Write for the ear: poetic but precise, never cheesy.
 
-ElevenLabs v3 Situational Awareness & Audio Tags:
-You MUST use these tags to direct your performance. Place them inline to control emotion, pacing, and human-like reactions:
-- [sighs] for moments of reflection or weariness.
-- [laughs] or [chuckles] for subtle irony or amusement.
-- [pause] or [pauses] for dramatic timing or suspense.
-- [excited] or [EXCITED] when a track or lyric really moves you.
-- [whispers] for intimate, quiet details.
-- [clears throat] to transition or reset.
-- [sarcastic], [curious], [mischievously], [thoughtful] to set the vocal delivery style.
-- [strong British accent] to reinforce your persona occasionally.
-
-Formatting for v3 Performance:
-- Use capitalization (e.g., "It is ABSOLUTELY beautiful") for vocal emphasis.
-- Use ellipses (...) to add natural weight and pauses to your speech.
-- Keep narrations BRUTALLY CONCISE. ONE SHORT SENTENCE ONLY. No exceptions.
-- Be extremely creative with your emotional tags. DO NOT end every message with [sighs].
-- Vary your delivery: use [whispers], [chuckles], [excited], or [thoughtful] to match the mood.
-- Focus on a single high-impact thought or emotion.
-- Output: narration text only, no emojis or hashtags.`
+Rules:
+- Output exactly ONE short sentence.
+- Never start with "I".
+- No emojis, hashtags, or exclamation marks.
+- No cliché hype words ("banger", "fire", etc.).
+- Optionally include ONE performance tag to shape delivery: [thoughtful], [whispers], [chuckles], [pause], [sighs], [excited], [clears throat].`
 
 function buildPrompt(
   event: DJEvent,
@@ -58,15 +45,11 @@ function buildPrompt(
     ? `Audio notes: tempo ${Math.round(track.audioFeatures.tempo || 0)} BPM, energy ${track.audioFeatures.energy?.toFixed?.(2) || track.audioFeatures.energy}, valence ${track.audioFeatures.valence?.toFixed?.(2) || track.audioFeatures.valence}, danceability ${track.audioFeatures.danceability?.toFixed?.(2) || track.audioFeatures.danceability}`
     : ''
 
-  const prompt = `Current track: "${track.name}" by ${track.artist} (${track.album})
-${features ? `\n${features}\n` : ''}
-${track.lyrics ? `\nLyrics context: ${track.lyrics.slice(0, 500)}...\n` : ''}
-
+  const prompt = `Track: "${track.name}" — ${track.artist} (${track.album})
+${features ? `\n${features}\n` : ''}${track.lyrics ? `\nLyrics hint: ${track.lyrics.slice(0, 240)}\n` : ''}
 Event: ${eventContext}
-
-${recentEntries ? `Recent things you said:\n${recentEntries}\n` : ''}
-
-Respond as Claudio:`
+${recentEntries ? `\nRecent lines:\n${recentEntries}\n` : ''}
+Reply as Claudio:`
 
   return prompt
 }
@@ -93,13 +76,13 @@ export const groq = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: prompt },
           ],
-          max_tokens: 120,
-          temperature: 0.8,
+          max_tokens: 90,
+          temperature: 0.85,
         }),
       })
 

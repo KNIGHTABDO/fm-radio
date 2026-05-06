@@ -3,6 +3,7 @@ export class AudioEngine {
   private spotifyGain: GainNode | null = null
   private djGain: GainNode | null = null
   private isInitialized = false
+  private djAudioEl: HTMLAudioElement | null = null
 
   async init(): Promise<void> {
     if (this.isInitialized) return
@@ -22,6 +23,73 @@ export class AudioEngine {
     }
 
     this.isInitialized = true
+  }
+
+  stopDJ(): void {
+    if (!this.djAudioEl) return
+    this.djAudioEl.pause()
+    this.djAudioEl.src = ''
+    this.djAudioEl.load()
+    this.djAudioEl = null
+  }
+
+  async playDJTTS(
+    text: string,
+    opts?: {
+      onStart?: () => void
+      onProgress?: (progress01: number) => void
+      onEnded?: () => void
+    }
+  ): Promise<void> {
+    this.stopDJ()
+
+    const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`)
+    audio.preload = 'auto'
+
+    this.djAudioEl = audio
+
+    let rafId: number | null = null
+    const tick = () => {
+      const duration = audio.duration
+      if (Number.isFinite(duration) && duration > 0) {
+        const progress01 = Math.max(0, Math.min(1, audio.currentTime / duration))
+        opts?.onProgress?.(progress01)
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        audio.removeEventListener('playing', onPlaying)
+        audio.removeEventListener('ended', onEnded)
+        audio.removeEventListener('error', onError)
+        if (rafId != null) cancelAnimationFrame(rafId)
+        if (this.djAudioEl === audio) this.djAudioEl = null
+      }
+
+      const onPlaying = () => {
+        opts?.onStart?.()
+        rafId = requestAnimationFrame(tick)
+      }
+      const onEnded = () => {
+        opts?.onEnded?.()
+        cleanup()
+        resolve()
+      }
+      const onError = () => {
+        cleanup()
+        reject(new Error('DJ audio playback error'))
+      }
+
+      audio.addEventListener('playing', onPlaying)
+      audio.addEventListener('ended', onEnded)
+      audio.addEventListener('error', onError)
+
+      audio.play().catch((e) => {
+        cleanup()
+        reject(e)
+      })
+    })
   }
 
   async duck(durationMs: number): Promise<void> {
@@ -94,6 +162,7 @@ export class AudioEngine {
   }
 
   dispose(): void {
+    this.stopDJ()
     if (this.ctx) {
       this.ctx.close()
       this.ctx = null
