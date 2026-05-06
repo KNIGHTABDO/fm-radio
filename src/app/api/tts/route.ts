@@ -9,25 +9,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
 
-    const apiKey = process.env.DEEPGRAM_API_KEY
+    const apiKey = process.env.ELEVENLABS_API_KEY
+    const voiceId = 'nPczCjzI2devNBz1zQrb' // User requested voice
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'Deepgram API key not configured' }, { status: 500 })
+      return NextResponse.json({ error: 'ElevenLabs API key not configured' }, { status: 500 })
     }
 
-    const response = await fetch('https://api.deepgram.com/v1/speak?encoding=linear16&sample_rate=24000&voice=aura-luna-en', {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${apiKey}`,
+        'xi-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         text,
+        model_id: 'eleven_v3',
+        latency_optimization: 2,
+        voice_settings: {
+          stability: 0.4,
+          similarity_boost: 0.8,
+        },
       }),
     })
 
     if (!response.ok) {
-      console.error('Deepgram TTS error:', response.status)
+      const errorData = await response.json()
+      console.error('ElevenLabs TTS error:', response.status, errorData)
       return NextResponse.json({ error: 'TTS generation failed' }, { status: 500 })
     }
 
@@ -35,7 +43,7 @@ export async function POST(request: Request) {
 
     return new NextResponse(audioBuffer, {
       headers: {
-        'Content-Type': 'audio/wav',
+        'Content-Type': 'audio/mpeg',
       },
     })
   } catch (error) {
@@ -43,3 +51,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to generate audio' }, { status: 500 })
   }
 }
+

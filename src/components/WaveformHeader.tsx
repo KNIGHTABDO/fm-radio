@@ -1,30 +1,15 @@
 'use client'
 
-import { useEffect, useState, useCallback, CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
-
-const BASE_HEIGHTS = [
-  8, 12, 15, 18, 24, 28, 35, 42, 48, 55,
-  62, 70, 78, 82, 88, 92, 88, 82, 75, 68,
-  72, 80, 88, 95, 100, 105, 108, 105, 100, 95,
-  88, 82, 75, 68, 62, 55, 48, 42, 35, 28,
-  24, 18, 15, 12, 8, 10, 14, 18, 22, 16,
-]
+import SiriWave from 'siriwave'
+import { signOut } from 'next-auth/react'
 
 export default function WaveformHeader() {
-  const { isPlaying, tweakSettings, setTweaksPanelOpen, tweaksPanelOpen, djStatus } = useStore()
-  const [barHeights, setBarHeights] = useState(BASE_HEIGHTS)
+  const { isPlaying, djStatus } = useStore()
   const [currentTime, setCurrentTime] = useState('')
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const siriWaveRef = useRef<any>(null)
 
   useEffect(() => {
     const updateTime = () => {
@@ -43,235 +28,220 @@ export default function WaveformHeader() {
   }, [])
 
   useEffect(() => {
-    if (!isPlaying) {
-      setBarHeights(BASE_HEIGHTS)
-      return
+    if (!containerRef.current) return
+
+    // Initialize SiriWave
+    siriWaveRef.current = new SiriWave({
+      container: containerRef.current,
+      width: containerRef.current.offsetWidth,
+      height: 300,
+      style: 'ios9',
+      amplitude: isPlaying ? 1.5 : 0.2,
+      speed: 0.15,
+      autostart: true,
+    })
+
+    const handleResize = () => {
+      if (siriWaveRef.current && containerRef.current) {
+        siriWaveRef.current.width = containerRef.current.offsetWidth
+        siriWaveRef.current.height = 300
+      }
     }
 
-    const interval = setInterval(() => {
-      setBarHeights((prev) =>
-        prev.map((h) => {
-          const variation = Math.random() * 0.6 + 0.7
-          return Math.min(110, h * variation)
-        })
-      )
-    }, 80)
+    window.addEventListener('resize', handleResize)
 
-    return () => clearInterval(interval)
-  }, [isPlaying])
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (siriWaveRef.current) {
+        siriWaveRef.current.dispose()
+      }
+    }
+  }, []) // Initialize once
 
-  const toggleTweaks = useCallback(() => {
-    setTweaksPanelOpen(!tweaksPanelOpen)
-  }, [tweaksPanelOpen, setTweaksPanelOpen])
-
-  const displayHeights = isMobile ? barHeights.slice(0, 30) : barHeights
-  const waveformHeight = isMobile ? 100 : 120
-
-  const headerStyle: CSSProperties = {
-    background: `
-      radial-gradient(ellipse at 30% 50%, hsla(var(--hue1), 65%, 18%, 0.65), transparent 55%),
-      radial-gradient(ellipse at 72% 55%, hsla(var(--hue2), 65%, 18%, 0.65), transparent 55%),
-      var(--bg)
-    `,
-  }
-
-  const isSpeaking = djStatus.isSpeaking
+  // Update amplitude when playing or speaking changes
+  useEffect(() => {
+    if (siriWaveRef.current) {
+      const targetAmplitude = djStatus.isSpeaking ? 2.5 : (isPlaying ? 1.2 : 0.1)
+      siriWaveRef.current.setAmplitude(targetAmplitude)
+      siriWaveRef.current.setSpeed(djStatus.isSpeaking ? 0.3 : 0.15)
+    }
+  }, [isPlaying, djStatus.isSpeaking])
 
   return (
-    <header className="waveform-header" style={headerStyle}>
-      <nav className="nav-row">
-        <div className="nav-left">
-          <div className={`avatar ${isSpeaking ? 'speaking' : ''}`}>
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <defs>
-                <linearGradient id="avatarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#4a4a5a" />
-                  <stop offset="100%" stopColor="#2a2a35" />
-                </linearGradient>
-                <mask id="avatarMask">
-                  <circle cx="18" cy="18" r="16" fill="white" />
-                </mask>
-              </defs>
-              <circle cx="18" cy="18" r="16" fill="url(#avatarGradient)" />
-              <g mask="url(#avatarMask)">
-                <ellipse cx="18" cy="14" rx="7" ry="8" fill="#1a1a22" />
-                <path d="M8 32 Q18 20 28 32" fill="#1a1a22" />
-              </g>
-              <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-            </svg>
-            {isSpeaking && <span className="speaking-ring" />}
-          </div>
-          <span className="nav-label">Claudio</span>
+    <header className="waveform-header">
+      <div ref={containerRef} className="siri-container" />
+      
+      <div className="status-bar">
+        <div className="status-left">
+          <img 
+            src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop" 
+            className="avatar" 
+            alt="Claudio" 
+          />
+          <div className="name">Claudio</div>
         </div>
 
-        <span className="clock">{currentTime}</span>
+        <div className="status-center">
+          <div className="nav">
+            <span>HOME</span>
+            <span>XHS</span>
+            <span>MUSIC</span>
+          </div>
+        </div>
 
-        <button
-          onClick={toggleTweaks}
-          className="settings-btn"
-          aria-label="Settings"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </button>
-      </nav>
-
-      <div className="waveform-container" style={{ height: waveformHeight }}>
-        {displayHeights.map((height, i) => (
-          <div
-            key={i}
-            className="waveform-bar"
-            style={{ height }}
-          />
-        ))}
+        <div className="status-right">
+          <div className="time">{currentTime}</div>
+          <button onClick={() => signOut()} className="signout-btn">EXIT</button>
+        </div>
       </div>
+
+      <div className={`paused-label ${isPlaying ? 'hidden' : ''}`}>Paused</div>
 
       <style jsx>{`
         .waveform-header {
-          position: relative;
-          min-height: 220px;
-          backdrop-filter: blur(var(--blur));
-          -webkit-backdrop-filter: blur(var(--blur));
+          height: 320px;
+          position: sticky;
+          top: 0;
+          background: #000;
           overflow: hidden;
-        }
-
-        .nav-row {
+          z-index: 1;
           display: flex;
           align-items: center;
-          padding: 24px 28px;
-          position: relative;
-          z-index: 10;
+          justify-content: center;
         }
 
-        .nav-left {
+        .siri-container {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.9;
+          z-index: 1;
+          transform: translateY(30px);
+        }
+
+        .status-bar {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 18px 20px;
+          color: #fff;
+          z-index: 10;
+          pointer-events: none;
+        }
+
+        .status-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+        }
+
+        .status-center {
+          flex: 2;
+          display: flex;
+          justify-content: center;
+        }
+
+        .status-right {
           display: flex;
           align-items: center;
           gap: 12px;
+          flex: 1;
+          justify-content: flex-end;
+          pointer-events: auto;
         }
 
         .avatar {
-          width: 36px;
-          height: 36px;
+          width: 26px;
+          height: 26px;
           border-radius: 50%;
-          position: relative;
-          transition: transform 0.3s ease;
+          object-fit: cover;
         }
 
-        .avatar.speaking {
-          transform: scale(1.1);
+        .name {
+          font-family: var(--font-pixel);
+          font-size: 26px;
+          line-height: 1;
+          letter-spacing: 1px;
+          transform: translateY(1px);
         }
 
-        .speaking-ring {
+        .nav {
+          display: flex;
+          gap: 12px;
+          font-size: 9px;
+          letter-spacing: 2px;
+          font-weight: 600;
+          opacity: 0.7;
+          white-space: nowrap;
+        }
+
+        .time {
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+
+        .signout-btn {
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          font-size: 8px;
+          padding: 3px 6px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 700;
+          letter-spacing: 1px;
+          transition: background 0.2s;
+        }
+          pointer-events: auto;
+        }
+
+        .signout-btn {
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          font-size: 10px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 700;
+          letter-spacing: 1px;
+          transition: background 0.2s;
+        }
+        .signout-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .paused-label {
           position: absolute;
-          inset: -4px;
-          border-radius: 50%;
-          border: 2px solid var(--accent);
-          animation: speakingPulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes speakingPulse {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.4;
-            transform: scale(1.15);
-          }
-        }
-
-        .nav-label {
-          font-family: var(--font-mono);
+          top: 54px;
+          left: 56px;
+          color: #22c55e;
           font-size: 13px;
           font-weight: 500;
-          color: rgba(255, 255, 255, 0.45);
-          letter-spacing: 0.05em;
+          z-index: 10;
+          transition: opacity 0.3s;
         }
 
-        .clock {
-          flex: 1;
-          font-family: var(--font-mono);
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.45);
-          text-align: right;
-        }
-
-        .settings-btn {
-          margin-left: 24px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 8px;
-          opacity: 0.45;
-          transition: opacity 0.2s;
-        }
-
-        .settings-btn:hover {
-          opacity: 0.7;
-        }
-
-        .waveform-container {
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          gap: 2px;
-          padding: 0 28px 32px;
-          position: relative;
-          z-index: 5;
-        }
-
-        .waveform-bar {
-          width: 2px;
-          background-color: var(--white-wave);
-          border-radius: 2px 2px 0 0;
-          transition: height 0.08s ease;
+        .paused-label.hidden {
+          opacity: 0;
         }
 
         @media (max-width: 640px) {
           .waveform-header {
-            min-height: 160px;
+            height: 320px;
           }
-
-          .nav-row {
-            padding: 16px 20px;
-          }
-
-          .avatar {
-            width: 32px;
-            height: 32px;
-          }
-
-          .nav-label {
-            font-size: 12px;
-          }
-
-          .clock {
-            font-size: 12px;
-          }
-
-          .settings-btn {
-            margin-left: 16px;
-            padding: 6px;
-          }
-
-          .waveform-container {
-            padding: 0 20px 24px;
-            gap: 1.5px;
-          }
-
-          .waveform-bar {
-            width: 1.5px;
+          .nav {
+            display: none;
           }
         }
       `}</style>

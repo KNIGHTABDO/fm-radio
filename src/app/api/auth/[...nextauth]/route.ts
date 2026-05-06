@@ -17,7 +17,10 @@ const handler = NextAuth({
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
       authorization: {
         url: 'https://accounts.spotify.com/authorize',
-        params: { scope: scopes },
+        params: { 
+          scope: scopes,
+          redirect_uri: 'http://127.0.0.1:3000/api/auth/callback/spotify',
+        },
       },
     }),
   ],

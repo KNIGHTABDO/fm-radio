@@ -17,6 +17,10 @@ export class AudioEngine {
     this.spotifyGain.gain.value = 1.0
     this.djGain.gain.value = 1.0
 
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume()
+    }
+
     this.isInitialized = true
   }
 
@@ -34,12 +38,22 @@ export class AudioEngine {
     }, durationMs - 500)
   }
 
-  async playDJAudio(blob: Blob): Promise<void> {
+  async playDJAudio(
+    blob: Blob,
+    opts?: {
+      onStart?: () => void
+      onProgress?: (progress01: number) => void
+    }
+  ): Promise<void> {
     if (!this.ctx || !this.djGain) {
       await this.init()
     }
 
     if (!this.ctx || !this.djGain) return
+
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume()
+    }
 
     const arrayBuffer = await blob.arrayBuffer()
     const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer)
@@ -47,10 +61,30 @@ export class AudioEngine {
     const source = this.ctx.createBufferSource()
     source.buffer = audioBuffer
     source.connect(this.djGain)
-    source.start(0)
+    const startAt = this.ctx.currentTime + 0.05
+    source.start(startAt)
+
+    const startDelayMs = Math.max(0, Math.floor((startAt - this.ctx.currentTime) * 1000))
+    setTimeout(() => {
+      opts?.onStart?.()
+    }, startDelayMs)
+
+    let rafId: number | null = null
+    const tick = () => {
+      if (!this.ctx) return
+      const elapsed = this.ctx.currentTime - startAt
+      const progress01 = Math.max(0, Math.min(1, elapsed / audioBuffer.duration))
+      opts?.onProgress?.(progress01)
+      rafId = requestAnimationFrame(tick)
+    }
+
+    rafId = requestAnimationFrame(tick)
 
     return new Promise((resolve) => {
-      source.onended = () => resolve()
+      source.onended = () => {
+        if (rafId != null) cancelAnimationFrame(rafId)
+        resolve()
+      }
     })
   }
 

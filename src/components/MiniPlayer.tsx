@@ -3,7 +3,6 @@
 import { useStore } from '@/lib/store'
 import { useMemo, useCallback, useEffect, useRef } from 'react'
 import { spotifyPlayer } from '@/lib/spotify'
-import { audioEngine } from '@/lib/audio'
 
 const SCRUBBER_BARS = 30
 
@@ -17,6 +16,7 @@ export default function MiniPlayer() {
   const { playerState, isPlaying, setIsPlaying, volume, setVolume } = useStore()
   const { positionMs } = playerState
   const volumeRef = useRef<HTMLInputElement>(null)
+  const trackUri = playerState.track?.uri
 
   const trackDuration = playerState.track?.durationMs || 243000
   const progress = positionMs / trackDuration
@@ -31,17 +31,23 @@ export default function MiniPlayer() {
 
   const handlePlayPause = useCallback(() => {
     if (playerState.isReady) {
-      spotifyPlayer.togglePlay()
+      if (playerState.isPaused) {
+        spotifyPlayer.play().catch(() => {})
+      } else {
+        spotifyPlayer.pause().catch(() => {})
+      }
     } else {
       setIsPlaying(!isPlaying)
     }
-  }, [isPlaying, setIsPlaying, playerState.isReady])
+  }, [isPlaying, setIsPlaying, playerState.isReady, playerState.isPaused])
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value)
     setVolume(newVolume)
-    audioEngine.setSpotifyVolume(newVolume)
-  }, [setVolume])
+    if (playerState.isReady) {
+      spotifyPlayer.setVolume(newVolume).catch(() => {})
+    }
+  }, [setVolume, playerState.isReady])
 
   const bars = useMemo(() => {
     return BASE_HEIGHTS.map((height, i) => ({
@@ -88,9 +94,16 @@ export default function MiniPlayer() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handlePlayPause, positionMs, trackDuration, playerState.isReady, volume, setVolume])
 
+  useEffect(() => {
+    if (!playerState.isReady) return
+    spotifyPlayer.setVolume(volume).catch(() => {})
+  }, [playerState.isReady, volume])
+
   return (
     <footer className="mini-player">
-      <span className="timestamp">{formatTime(positionMs)}</span>
+      <div className="mini-left">
+        <span className="timestamp">{formatTime(positionMs)}</span>
+      </div>
 
       <div className="scrubber">
         {bars.map((bar, i) => (
@@ -98,66 +111,62 @@ export default function MiniPlayer() {
             key={i}
             className="scrubber-bar"
             data-played={bar.isPlayed}
+            style={{ height: bar.height }}
           />
         ))}
       </div>
 
-      <div className="volume-control">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-          {volume > 0 && <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />}
-          {volume > 0.5 && <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />}
-        </svg>
-        <input
-          ref={volumeRef}
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={handleVolumeChange}
-          className="volume-slider"
-        />
+      <div className="mini-right">
+        <button
+          onClick={handlePlayPause}
+          className="play-btn"
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
+          )}
+        </button>
       </div>
-
-      <button
-        onClick={handlePlayPause}
-        className="play-btn"
-        aria-label={isPlaying ? 'Pause' : 'Play'}
-      >
-        {isPlaying ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#111111">
-            <rect x="6" y="4" width="4" height="16" />
-            <rect x="14" y="4" width="4" height="16" />
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#111111">
-            <polygon points="5,3 19,12 5,21" />
-          </svg>
-        )}
-      </button>
 
       <style jsx>{`
         .mini-player {
-          position: fixed;
+          position: absolute;
           bottom: 0;
           left: 0;
           right: 0;
-          height: 64px;
-          background: #111111;
+          height: 80px;
+          background: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
           display: flex;
           align-items: center;
-          padding: 0 20px;
-          gap: 16px;
+          padding: 0 32px;
+          gap: 24px;
           z-index: 50;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mini-left, .mini-right {
+          flex: 0 0 60px;
+        }
+
+        .mini-right {
+          display: flex;
+          justify-content: flex-end;
         }
 
         .timestamp {
           font-family: var(--font-mono);
-          font-size: 11px;
-          color: rgba(255, 255, 255, 0.45);
-          flex-shrink: 0;
-          min-width: 40px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.5);
         }
 
         .scrubber {
@@ -165,92 +174,46 @@ export default function MiniPlayer() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 1px;
+          gap: 2px;
         }
 
         .scrubber-bar {
-          width: 1px;
-          background-color: rgba(255, 255, 255, 0.18);
-          border-radius: 0.5px;
+          width: 2px;
+          background-color: rgba(255, 255, 255, 0.1);
+          border-radius: 1px;
           transition: background-color 0.3s ease;
         }
 
         .scrubber-bar[data-played="true"] {
-          background-color: rgba(255, 255, 255, 0.75);
-        }
-
-        .volume-control {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: rgba(255, 255, 255, 0.4);
-          flex-shrink: 0;
-        }
-
-        .volume-slider {
-          width: 60px;
-          height: 2px;
-          -webkit-appearance: none;
-          appearance: none;
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 1px;
-          outline: none;
-          cursor: pointer;
-        }
-
-        .volume-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: white;
-          cursor: pointer;
-        }
-
-        .volume-slider::-moz-range-thumb {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: white;
-          cursor: pointer;
-          border: none;
+          background-color: rgba(255, 255, 255, 0.8);
         }
 
         .play-btn {
           width: 36px;
           height: 36px;
           border-radius: 50%;
-          background: white;
-          border: none;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
-          transition: transform 0.15s;
+          transition: all 0.2s;
         }
 
         .play-btn:hover {
+          background: rgba(255, 255, 255, 0.2);
           transform: scale(1.05);
-        }
-
-        .play-btn:active {
-          transform: scale(0.98);
         }
 
         @media (max-width: 640px) {
           .mini-player {
-            padding: 0 12px;
-            gap: 10px;
+            padding: 0 20px;
+            height: 72px;
           }
 
-          .volume-control {
-            display: none;
-          }
-
-          .timestamp {
-            font-size: 10px;
+          .mini-left, .mini-right {
+            flex: 0 0 40px;
           }
         }
       `}</style>

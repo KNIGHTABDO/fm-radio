@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { spotifyPlayer } from '@/lib/spotify'
 
@@ -9,8 +9,7 @@ interface SpotifyProviderProps {
 }
 
 export default function SpotifyProvider({ children }: SpotifyProviderProps) {
-  const [isInitialized, setIsInitialized] = useState(false)
-  const { setPlayerState, setTrack, setPosition, setIsPaused } = useStore()
+  const { setPlayerState, setTrack, setPosition, setIsPaused, setIsPlaying } = useStore()
 
   useEffect(() => {
     const initSpotify = async () => {
@@ -28,9 +27,8 @@ export default function SpotifyProvider({ children }: SpotifyProviderProps) {
             setPosition(state.positionMs)
             setIsPaused(state.isPaused)
             setPlayerState({ isReady: true })
+            setIsPlaying(!state.isPaused)
           })
-
-          setIsInitialized(true)
         }
       } catch (error) {
         console.error('Failed to initialize Spotify:', error)
@@ -42,7 +40,7 @@ export default function SpotifyProvider({ children }: SpotifyProviderProps) {
     return () => {
       spotifyPlayer.disconnect()
     }
-  }, [setTrack, setPosition, setIsPaused, setPlayerState])
+  }, [setTrack, setPosition, setIsPaused, setPlayerState, setIsPlaying])
 
   return <>{children}</>
 }

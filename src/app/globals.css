@@ -1,58 +1,71 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:ital,wght@0,300;0,400;0,500&family=DM+Sans:wght@300;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #080810;
-  --card: #f8f8f5;
-  --card-sub: #f0f0ee;
-  --text-dark: #111111;
-  --text-muted: rgba(17, 17, 17, 0.45);
-  --text-future: rgba(17, 17, 17, 0.30);
-  --white-wave: rgba(255, 255, 255, 0.85);
-  --accent: #4ade80;
-  --accent-highlight: rgba(74, 222, 128, 0.22);
-  --hue1: 256deg;
-  --hue2: 330deg;
-  --blur: 71px;
-
-  --font-display: 'Instrument Serif', Georgia, serif;
-  --font-mono: 'DM Mono', monospace;
-  --font-body: 'DM Sans', sans-serif;
+  --font-pixel: 'DotGothic16', monospace;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --bg: #1a1a1a;
+  --accent: #22c55e;
 }
 
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
-html,
 body {
   background: var(--bg);
-  color: var(--text-dark);
+  color: #fff;
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  min-height: 100vh;
 }
 
-::selection {
-  background: var(--accent-highlight);
+.app-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--bg);
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.app-shell {
+  width: 390px;
+  height: 780px;
+  background: #000;
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(17, 17, 17, 0.2);
-  border-radius: 3px;
+.main-content::-webkit-scrollbar {
+  display: none;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(17, 17, 17, 0.3);
+/* Custom transitions */
+.fade-enter {
+  opacity: 0;
+}
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 300ms;
+}
+.fade-exit {
+  opacity: 1;
+}
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 300ms;
 }
