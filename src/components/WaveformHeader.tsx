@@ -5,11 +5,22 @@ import { useStore } from '@/lib/store'
 import SiriWave from 'siriwave'
 import { signOut } from 'next-auth/react'
 
+type SpotifySegment = {
+  start: number
+  duration: number
+  loudness_start: number
+  loudness_max: number
+}
+
 export default function WaveformHeader() {
-  const { isPlaying, djStatus } = useStore()
+  const { isPlaying, playerState } = useStore()
   const [currentTime, setCurrentTime] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const siriWaveRef = useRef<any>(null)
+  const lastSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const accessTokenRef = useRef<string | null>(null)
+  const segmentsRef = useRef<SpotifySegment[] | null>(null)
+  const lastLevelRef = useRef<number>(0)
 
   useEffect(() => {
     const updateTime = () => {
@@ -30,42 +41,147 @@ export default function WaveformHeader() {
   useEffect(() => {
     if (!containerRef.current) return
 
-    // Initialize SiriWave
-    siriWaveRef.current = new SiriWave({
-      container: containerRef.current,
-      width: containerRef.current.offsetWidth,
-      height: 300,
-      style: 'ios9',
-      amplitude: isPlaying ? 1.5 : 0.2,
-      speed: 0.15,
-      autostart: true,
-    })
+    const el = containerRef.current
 
-    const handleResize = () => {
-      if (siriWaveRef.current && containerRef.current) {
-        siriWaveRef.current.width = containerRef.current.offsetWidth
-        siriWaveRef.current.height = 300
+    const ensureWave = () => {
+      const rect = el.getBoundingClientRect()
+      const nextWidth = Math.max(1, Math.floor(rect.width))
+      const nextHeight = Math.max(1, Math.floor(rect.height))
+
+      const last = lastSizeRef.current
+      if (last && last.width === nextWidth && last.height === nextHeight && siriWaveRef.current) {
+        return
+      }
+
+      if (siriWaveRef.current) {
+        siriWaveRef.current.dispose()
+      }
+
+      siriWaveRef.current = new SiriWave({
+        container: el,
+        style: 'ios',
+        width: nextWidth,
+        height: nextHeight,
+        cover: true,
+        ratio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+        speed: 0.12,
+        amplitude: 0.15,
+        frequency: 4,
+        color: '#fff',
+        autostart: true,
+      })
+
+      lastSizeRef.current = { width: nextWidth, height: nextHeight }
+    }
+
+    ensureWave()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', ensureWave)
+      return () => {
+        window.removeEventListener('resize', ensureWave)
+        if (siriWaveRef.current) {
+          siriWaveRef.current.dispose()
+        }
       }
     }
 
-    window.addEventListener('resize', handleResize)
+    const ro = new ResizeObserver(() => ensureWave())
+    ro.observe(el)
 
     return () => {
-      window.removeEventListener('resize', handleResize)
+      ro.disconnect()
       if (siriWaveRef.current) {
         siriWaveRef.current.dispose()
       }
     }
   }, []) // Initialize once
 
-  // Update amplitude when playing or speaking changes
   useEffect(() => {
-    if (siriWaveRef.current) {
-      const targetAmplitude = djStatus.isSpeaking ? 2.5 : (isPlaying ? 1.2 : 0.1)
-      siriWaveRef.current.setAmplitude(targetAmplitude)
-      siriWaveRef.current.setSpeed(djStatus.isSpeaking ? 0.3 : 0.15)
+    const loadSession = async () => {
+      try {
+        const response = await fetch('/api/auth/session')
+        const session = await response.json()
+        accessTokenRef.current = session?.accessToken || null
+      } catch {
+        accessTokenRef.current = null
+      }
     }
-  }, [isPlaying, djStatus.isSpeaking])
+    loadSession()
+  }, [])
+
+  useEffect(() => {
+    const trackId = playerState.track?.id
+    const token = accessTokenRef.current
+    if (!trackId || !token) {
+      segmentsRef.current = null
+      return
+    }
+
+    const loadAnalysis = async () => {
+      try {
+        const url = `/api/spotify/audio-analysis?id=${encodeURIComponent(trackId)}&token=${encodeURIComponent(token)}`
+        const response = await fetch(url)
+        if (!response.ok) {
+          segmentsRef.current = null
+          return
+        }
+        const data = await response.json()
+        const segments = Array.isArray(data?.segments) ? (data.segments as SpotifySegment[]) : null
+        segmentsRef.current = segments && segments.length ? segments : null
+      } catch {
+        segmentsRef.current = null
+      }
+    }
+
+    loadAnalysis()
+  }, [playerState.track?.id])
+
+  useEffect(() => {
+    if (!siriWaveRef.current) return
+
+    if (!isPlaying || playerState.isPaused) {
+      siriWaveRef.current.setAmplitude(0.15)
+      siriWaveRef.current.setSpeed(0.04)
+      return
+    }
+
+    const segments = segmentsRef.current
+    if (!segments || !segments.length) {
+      siriWaveRef.current.setAmplitude(0.6)
+      siriWaveRef.current.setSpeed(0.12)
+      return
+    }
+
+    const t = playerState.positionMs / 1000
+
+    let lo = 0
+    let hi = segments.length - 1
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      const seg = segments[mid]
+      if (t < seg.start) hi = mid - 1
+      else if (t >= seg.start + seg.duration) lo = mid + 1
+      else {
+        lo = mid
+        break
+      }
+    }
+
+    const seg = segments[Math.min(Math.max(lo, 0), segments.length - 1)]
+    const p = Math.max(0, Math.min(1, (t - seg.start) / Math.max(0.001, seg.duration)))
+    const loudness = seg.loudness_start + (seg.loudness_max - seg.loudness_start) * p
+
+    const level01 = Math.max(0, Math.min(1, (loudness + 60) / 60))
+    const shaped = Math.pow(level01, 1.7)
+    const targetAmp = 0.25 + shaped * 2.6
+
+    const smoothed = lastLevelRef.current * 0.85 + targetAmp * 0.15
+    lastLevelRef.current = smoothed
+
+    siriWaveRef.current.setAmplitude(Math.max(0.2, Math.min(3.2, smoothed)))
+    siriWaveRef.current.setSpeed(0.12)
+  }, [isPlaying, playerState.isPaused, playerState.positionMs])
 
   return (
     <header className="waveform-header">
@@ -115,12 +231,15 @@ export default function WaveformHeader() {
           inset: 0;
           width: 100%;
           height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           opacity: 0.9;
           z-index: 1;
-          transform: translateY(30px);
+          pointer-events: none;
+        }
+
+        .siri-container :global(canvas) {
+          display: block;
+          width: 100% !important;
+          height: 100% !important;
         }
 
         .status-bar {
@@ -196,21 +315,6 @@ export default function WaveformHeader() {
           color: #fff;
           font-size: 8px;
           padding: 3px 6px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: 700;
-          letter-spacing: 1px;
-          transition: background 0.2s;
-        }
-          pointer-events: auto;
-        }
-
-        .signout-btn {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: #fff;
-          font-size: 10px;
-          padding: 4px 8px;
           border-radius: 4px;
           cursor: pointer;
           font-weight: 700;
