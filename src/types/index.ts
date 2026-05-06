@@ -15,6 +15,14 @@ export interface SpotifyTrack {
   lyrics?: string
 }
 
+export interface SpotifyPlaylist {
+  id: string
+  name: string
+  uri: string
+  image: string
+  tracksTotal: number
+}
+
 export interface TranscriptEntry {
   id: string
   speaker: 'Claudio' | 'System'

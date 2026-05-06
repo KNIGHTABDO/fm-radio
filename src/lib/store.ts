@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { SpotifyTrack, TranscriptEntry, DJStatus, PlayerState } from '@/types'
+import type { SpotifyTrack, SpotifyPlaylist, TranscriptEntry, DJStatus, PlayerState } from '@/types'
 
 interface AppState {
   playerState: PlayerState
   djStatus: DJStatus
   transcript: TranscriptEntry[]
+  selectedPlaylist: SpotifyPlaylist | null
   tweakSettings: {
     hue1: number
     hue2: number
@@ -19,6 +20,7 @@ interface AppState {
   setPosition: (positionMs: number) => void
   setIsPaused: (paused: boolean) => void
   setIsReady: (ready: boolean) => void
+  setSelectedPlaylist: (playlist: SpotifyPlaylist | null) => void
   
   setDJStatus: (status: Partial<DJStatus>) => void
   addTranscriptEntry: (entry: TranscriptEntry) => void
@@ -43,6 +45,7 @@ export const useStore = create<AppState>((set) => ({
     lastSpokenAt: null,
   },
   transcript: [],
+  selectedPlaylist: null,
   tweakSettings: {
     hue1: 256,
     hue2: 330,
@@ -72,6 +75,7 @@ export const useStore = create<AppState>((set) => ({
     set((prev) => ({
       playerState: { ...prev.playerState, isReady },
     })),
+  setSelectedPlaylist: (selectedPlaylist) => set({ selectedPlaylist }),
 
   setDJStatus: (status) =>
     set((prev) => ({

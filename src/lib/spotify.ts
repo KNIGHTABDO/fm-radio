@@ -203,6 +203,42 @@ class SpotifyPlayerWrapper {
     }
   }
 
+  async setShuffle(state: boolean): Promise<void> {
+    if (!this.player) return
+    const url = this.deviceId
+      ? `https://api.spotify.com/v1/me/player/shuffle?state=${state ? 'true' : 'false'}&device_id=${encodeURIComponent(this.deviceId)}`
+      : `https://api.spotify.com/v1/me/player/shuffle?state=${state ? 'true' : 'false'}`
+
+    await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+      },
+    }).catch(() => {})
+  }
+
+  async playContext(contextUri: string): Promise<void> {
+    if (!this.player) return
+
+    const url = this.deviceId
+      ? `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(this.deviceId)}`
+      : 'https://api.spotify.com/v1/me/player/play'
+
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ context_uri: contextUri }),
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(`Spotify play failed: ${res.status} ${text}`)
+    }
+  }
+
   async pause(): Promise<void> {
     if (!this.player) return
     await this.player.pause()
