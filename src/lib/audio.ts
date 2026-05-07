@@ -4,6 +4,7 @@ export class AudioEngine {
   private djGain: GainNode | null = null
   private isInitialized = false
   private djAudioEl: HTMLAudioElement | null = null
+  private djSource: AudioBufferSourceNode | null = null
 
   async init(): Promise<void> {
     if (this.isInitialized) return
@@ -26,11 +27,82 @@ export class AudioEngine {
   }
 
   stopDJ(): void {
+    if (this.djSource) {
+      try {
+        this.djSource.stop()
+      } catch {}
+      this.djSource.disconnect()
+      this.djSource = null
+    }
     if (!this.djAudioEl) return
     this.djAudioEl.pause()
     this.djAudioEl.src = ''
     this.djAudioEl.load()
     this.djAudioEl = null
+  }
+
+  private async playDJLinear16(
+    arrayBuffer: ArrayBuffer,
+    sampleRate: number,
+    opts?: {
+      onStart?: () => void
+      onProgress?: (progress01: number) => void
+      onEnded?: () => void
+    }
+  ): Promise<void> {
+    if (!this.ctx || !this.djGain) {
+      await this.init()
+    }
+
+    if (!this.ctx || !this.djGain) return
+
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume()
+    }
+
+    const sampleCount = Math.floor(arrayBuffer.byteLength / 2)
+    const float32 = new Float32Array(sampleCount)
+    const view = new DataView(arrayBuffer)
+    for (let i = 0; i < sampleCount; i++) {
+      const int16 = view.getInt16(i * 2, true)
+      float32[i] = int16 / 32768
+    }
+
+    const audioBuffer = this.ctx.createBuffer(1, sampleCount, sampleRate)
+    audioBuffer.getChannelData(0).set(float32)
+
+    const source = this.ctx.createBufferSource()
+    source.buffer = audioBuffer
+    source.connect(this.djGain)
+    this.djSource = source
+
+    const startAt = this.ctx.currentTime + 0.05
+    source.start(startAt)
+
+    const startDelayMs = Math.max(0, Math.floor((startAt - this.ctx.currentTime) * 1000))
+    setTimeout(() => {
+      opts?.onStart?.()
+    }, startDelayMs)
+
+    let rafId: number | null = null
+    const tick = () => {
+      if (!this.ctx) return
+      const elapsed = this.ctx.currentTime - startAt
+      const progress01 = Math.max(0, Math.min(1, elapsed / audioBuffer.duration))
+      opts?.onProgress?.(progress01)
+      rafId = requestAnimationFrame(tick)
+    }
+
+    rafId = requestAnimationFrame(tick)
+
+    return new Promise((resolve) => {
+      source.onended = () => {
+        if (rafId != null) cancelAnimationFrame(rafId)
+        if (this.djSource === source) this.djSource = null
+        opts?.onEnded?.()
+        resolve()
+      }
+    })
   }
 
   async playDJTTS(
@@ -52,6 +124,12 @@ export class AudioEngine {
     if (!response.ok) {
       const textBody = await response.text().catch(() => '')
       throw new Error(`TTS request failed: ${response.status} ${textBody.slice(0, 300)}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.toLowerCase().startsWith('audio/l16')) {
+      const arrayBuffer = await response.arrayBuffer()
+      return this.playDJLinear16(arrayBuffer, 24000, opts)
     }
 
     const blob = await response.blob()

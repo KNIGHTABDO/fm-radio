@@ -28,6 +28,11 @@ export default function Transcript() {
 
   const lastEntry = transcript[transcript.length - 1]
   const cleanText = lastEntry.text.replace(/\[.*?\]/g, '').trim()
+  const words = cleanText ? cleanText.split(/\s+/).filter(Boolean) : []
+  const activeWordIndex =
+    lastEntry.status === 'active' && typeof lastEntry.wordIndex === 'number'
+      ? Math.max(0, Math.min(words.length - 1, lastEntry.wordIndex))
+      : null
 
   return (
     <div className="transcript-container">
@@ -38,7 +43,23 @@ export default function Transcript() {
             Claudio • {lastEntry.timestamp ? `0:${Math.floor(lastEntry.timestamp / 1000).toString().padStart(2, '0')}` : '0:00'}
           </div>
           <div className="transcript-text">
-            {cleanText}
+            {activeWordIndex == null || words.length === 0
+              ? cleanText
+              : words.map((w, i) => (
+                  <span
+                    key={`${w}-${i}`}
+                    className={
+                      i < activeWordIndex
+                        ? 'word word-spoken'
+                        : i === activeWordIndex
+                          ? 'word word-active'
+                          : 'word'
+                    }
+                  >
+                    {w}
+                    {i < words.length - 1 ? ' ' : ''}
+                  </span>
+                ))}
           </div>
         </div>
       </div>
@@ -107,6 +128,19 @@ export default function Transcript() {
           font-size: 15px;
           line-height: 1.45;
           color: #1f2937;
+        }
+        .word {
+          transition: color 160ms ease, background 160ms ease, filter 160ms ease;
+        }
+        .word-spoken {
+          color: #4b5563;
+        }
+        .word-active {
+          color: #0f172a;
+          background: linear-gradient(90deg, rgba(168, 85, 247, 0.22), rgba(236, 72, 153, 0.18));
+          border-radius: 8px;
+          padding: 1px 6px 2px 6px;
+          filter: saturate(1.1);
         }
 
         @media (min-width: 768px) {

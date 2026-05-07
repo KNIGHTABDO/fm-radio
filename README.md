@@ -35,7 +35,7 @@ A personal AI radio station with cinematic narration from your very own DJ named
 | State | Zustand | Client-side state management |
 | Music | Spotify Web Playback SDK | In-browser music playback |
 | AI Brain | GitHub Copilot (multi-model) | DJ narration generation |
-| AI Voice | Deepgram Aura TTS | Text-to-speech synthesis |
+| AI Voice | Deepgram Aura 2 TTS | Text-to-speech synthesis |
 | Audio | Web Audio API | Ducking, mixing, volume fades |
 | Auth | NextAuth.js | Spotify OAuth |
 
@@ -54,7 +54,7 @@ Before running the app, you'll need:
 
 3. **Deepgram API Key**
    - Sign up at [console.deepgram.com](https://console.deepgram.com)
-   - Free tier includes aura-luna-en voice
+   - This project uses Aura 2 (`aura-2-arcas-en`) at 24kHz linear16 output
 
 ---
 
@@ -87,7 +87,7 @@ SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 GITHUB_COPILOT_TOKEN=your_github_token
 GITHUB_COPILOT_MODEL=gpt-4o-mini
 
-# Deepgram TTS - AI voice
+# Deepgram TTS (Aura 2) - AI voice
 # Get from: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_deepgram_api_key
 
@@ -198,7 +198,7 @@ Generates Claudio's narration for a given event.
 
 ### `POST /api/tts`
 
-Converts text to speech using Deepgram Aura.
+Converts text to speech using Deepgram Aura 2 (`aura-2-arcas-en`).
 
 **Request:**
 ```json
@@ -208,7 +208,7 @@ Converts text to speech using Deepgram Aura.
 ```
 
 **Response:**
-Audio stream (WAV, 24kHz, mono, 16-bit)
+Audio stream (`audio/l16;rate=24000`)
 
 ### `GET /api/spotify/search`
 
