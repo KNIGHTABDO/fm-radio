@@ -21,16 +21,15 @@ export function useDJ() {
       lastEventRef.current = eventKey
 
       const currentTranscript = playerState.track ? [...transcript] : []
-      if (inFlightRef.current && event.type !== 'MANUAL') return
+      const canInterrupt = event.type === 'MANUAL' || event.type === 'USER_PAUSED' || event.type === 'TRACK_END'
+      if (inFlightRef.current && !canInterrupt) return
 
       const thisRunId = ++runIdRef.current
       abortRef.current?.abort()
       abortRef.current = new AbortController()
-      if (event.type === 'MANUAL') {
-        audioEngine.stopDJ()
-        if (playerState.isReady) {
-          spotifyPlayer.setVolume(volume).catch(() => {})
-        }
+      audioEngine.stopDJ()
+      if (playerState.isReady) {
+        spotifyPlayer.setVolume(volume).catch(() => {})
       }
 
       inFlightRef.current = true

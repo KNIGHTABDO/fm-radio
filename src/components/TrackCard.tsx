@@ -265,6 +265,11 @@ export default function TrackCard() {
           margin-bottom: 8px;
           flex: 1;
           min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 6;
         }
         .playlist-pill {
           margin-top: 4px;
@@ -385,6 +390,7 @@ export default function TrackCard() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 12px;
           margin-top: 6px;
           margin-bottom: 22px;
         }
@@ -392,6 +398,11 @@ export default function TrackCard() {
           color: #6b7280;
           font-size: 14px;
           font-weight: 500;
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .apple-link {
           color: #9ca3af;
@@ -401,6 +412,7 @@ export default function TrackCard() {
           align-items: center;
           gap: 4px;
           font-weight: 500;
+          flex-shrink: 0;
         }
         .apple-link:hover { color: #6b7280; }
         
@@ -515,10 +527,11 @@ export default function TrackCard() {
           }
 
           .title {
-            font-size: 54px;
+            font-size: clamp(40px, 4.7vw, 54px);
             line-height: 1.02;
             letter-spacing: -0.8px;
             margin-bottom: 12px;
+            -webkit-line-clamp: 5;
           }
 
           .subtitle-row {

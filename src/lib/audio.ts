@@ -43,7 +43,20 @@ export class AudioEngine {
   ): Promise<void> {
     this.stopDJ()
 
-    const audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}`)
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+
+    if (!response.ok) {
+      const textBody = await response.text().catch(() => '')
+      throw new Error(`TTS request failed: ${response.status} ${textBody.slice(0, 300)}`)
+    }
+
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const audio = new Audio(objectUrl)
     audio.preload = 'auto'
 
     this.djAudioEl = audio
@@ -64,6 +77,7 @@ export class AudioEngine {
         audio.removeEventListener('ended', onEnded)
         audio.removeEventListener('error', onError)
         if (rafId != null) cancelAnimationFrame(rafId)
+        URL.revokeObjectURL(objectUrl)
         if (this.djAudioEl === audio) this.djAudioEl = null
       }
 

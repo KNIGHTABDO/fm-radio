@@ -69,30 +69,47 @@ export const groq = {
     const prompt = buildPrompt(event, transcript, track)
 
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: prompt },
-          ],
-          max_tokens: 90,
-          temperature: 0.85,
-        }),
-      })
+      const doRequest = async () => {
+        const controller = new AbortController()
+        const t = setTimeout(() => controller.abort(), 7000)
+        try {
+          return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+              messages: [
+                { role: 'system', content: SYSTEM_PROMPT },
+                { role: 'user', content: prompt },
+              ],
+              max_tokens: 90,
+              temperature: 0.85,
+            }),
+            signal: controller.signal,
+          })
+        } finally {
+          clearTimeout(t)
+        }
+      }
+
+      let response = await doRequest()
+      if (response.status === 429 || response.status === 503 || response.status === 504) {
+        await new Promise((r) => setTimeout(r, 450))
+        response = await doRequest()
+      }
 
       if (!response.ok) {
-        console.error('Groq API error:', response.status)
+        const textBody = await response.text().catch(() => '')
+        console.error('Groq API error:', response.status, textBody.slice(0, 600))
         return getFallbackNarration(event)
       }
 
       const data = await response.json()
-      return data.choices[0]?.message?.content?.trim() || getFallbackNarration(event)
+      const content = data?.choices?.[0]?.message?.content
+      return (typeof content === 'string' ? content.trim() : '') || getFallbackNarration(event)
     } catch (error) {
       console.error('Groq fetch error:', error)
       return getFallbackNarration(event)

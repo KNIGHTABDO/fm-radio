@@ -108,6 +108,8 @@ export default function Home() {
 
   // 1. Initial/Refresh narration & Milestone narration
   const milestonesRef = useRef<Set<number>>(new Set())
+  const pausedAtRef = useRef<number | null>(null)
+  const pauseTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isPlaying) return
@@ -144,6 +146,46 @@ export default function Home() {
       })
     }
   }, [isPlaying, trackUri, playerState.positionMs, triggerEvent, playerState.track])
+
+  useEffect(() => {
+    if (!playerState.isReady) return
+    if (!playerState.track) return
+
+    if (playerState.isPaused) {
+      if (pausedAtRef.current == null) pausedAtRef.current = Date.now()
+      if (pauseTimerRef.current == null) {
+        pauseTimerRef.current = window.setTimeout(() => {
+          const state = useStore.getState()
+          const track = state.playerState.track
+          if (!track) return
+          if (!state.playerState.isPaused) return
+          const remaining = (track.durationMs || 0) - state.playerState.positionMs
+          if (remaining > 0 && remaining < 8000) return
+          const pausedAt = pausedAtRef.current ?? Date.now()
+          triggerEvent({
+            type: 'USER_PAUSED',
+            track,
+            pausedFor: Date.now() - pausedAt,
+          })
+        }, 1800)
+      }
+      return
+    }
+
+    pausedAtRef.current = null
+    if (pauseTimerRef.current != null) {
+      window.clearTimeout(pauseTimerRef.current)
+      pauseTimerRef.current = null
+    }
+  }, [playerState.isPaused, playerState.isReady, playerState.track, triggerEvent])
+
+  useEffect(() => {
+    pausedAtRef.current = null
+    if (pauseTimerRef.current != null) {
+      window.clearTimeout(pauseTimerRef.current)
+      pauseTimerRef.current = null
+    }
+  }, [trackUri])
 
 
 
