@@ -1,6 +1,6 @@
 # FM — AI Radio Station
 
-A personal AI radio station with cinematic narration from your very own DJ named **Claudio**. Built with Next.js 14, Spotify, Groq AI, and Deepgram TTS.
+A personal AI radio station with cinematic narration from your very own DJ named **Claudio**. Built with Next.js 14, Spotify, GitHub Copilot models, and Deepgram TTS.
 
 ![FM Radio](https://img.shields.io/badge/FM-Claudio-4ade80?style=for-the-badge)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
@@ -14,7 +14,7 @@ A personal AI radio station with cinematic narration from your very own DJ named
 ### Core
 - **AI DJ "Claudio"** — A poetic, melancholic AI DJ who speaks between tracks with literary-quality narration
 - **Spotify Integration** — Search and play any track from Spotify's catalog
-- **Real-time Narration** — AI-generated voice commentary powered by Groq and Deepgram
+- **Real-time Narration** — AI-generated voice commentary powered by GitHub Copilot models and Deepgram
 - **Audio Ducking** — Spotify volume automatically ducks when Claudio speaks
 
 ### Design
@@ -34,7 +34,7 @@ A personal AI radio station with cinematic narration from your very own DJ named
 | Styling | Tailwind + CSS Variables | Layout & dynamic styles |
 | State | Zustand | Client-side state management |
 | Music | Spotify Web Playback SDK | In-browser music playback |
-| AI Brain | Groq API (Llama 3.3) | DJ narration generation |
+| AI Brain | GitHub Copilot (multi-model) | DJ narration generation |
 | AI Voice | Deepgram Aura TTS | Text-to-speech synthesis |
 | Audio | Web Audio API | Ducking, mixing, volume fades |
 | Auth | NextAuth.js | Spotify OAuth |
@@ -49,9 +49,8 @@ Before running the app, you'll need:
    - Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    - Add `http://localhost:3000` to Redirect URIs
 
-2. **Groq API Key**
-   - Sign up at [console.groq.com](https://console.groq.com)
-   - Free tier available with generous limits
+2. **GitHub Copilot Token**
+   - Provide a GitHub token that can be exchanged for a Copilot session token
 
 3. **Deepgram API Key**
    - Sign up at [console.deepgram.com](https://console.deepgram.com)
@@ -84,9 +83,9 @@ Create a `.env.local` file in the root directory:
 NEXT_PUBLIC_SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 
-# Groq API - AI narration
-# Get from: https://console.groq.com/
-GROQ_API_KEY=your_groq_api_key
+# GitHub Copilot / GitHub Models - AI narration
+GITHUB_COPILOT_TOKEN=your_github_token
+GITHUB_COPILOT_MODEL=gpt-4o-mini
 
 # Deepgram TTS - AI voice
 # Get from: https://console.deepgram.com/
@@ -133,7 +132,7 @@ Click the ⚙️ settings icon in the header to adjust:
 │   ├── /app                 # Next.js App Router
 │   │   ├── /api
 │   │   │   ├── /auth        # NextAuth OAuth routes
-│   │   │   ├── /dj          # Groq narration API
+│   │   │   ├── /dj          # AI narration API
 │   │   │   ├── /spotify     # Spotify search proxy
 │   │   │   └── /tts         # Deepgram TTS API
 │   │   ├── layout.tsx       # Root layout
@@ -152,7 +151,7 @@ Click the ⚙️ settings icon in the header to adjust:
 │   ├── /lib                 # Core utilities
 │   │   ├── audio.ts         # Web Audio API engine
 │   │   ├── spotify.ts       # Spotify SDK wrapper
-│   │   ├── groq.ts          # Groq API client
+│   │   ├── githubCopilot.ts # GitHub Copilot client
 │   │   ├── orchestrator.ts  # DJ event system
 │   │   └── store.ts         # Zustand state
 │   │

@@ -1,4 +1,4 @@
-import { groq } from '@/lib/groq'
+import { githubCopilot } from '@/lib/githubCopilot'
 import { NextResponse } from 'next/server'
 import type { DJEvent, TranscriptEntry, SpotifyTrack } from '@/types'
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const lyrics = shouldFetchLyrics ? await fetchLyrics(track.artist, track.name, 700) : null
     const trackWithLyrics = { ...track, lyrics: lyrics || undefined }
 
-    const narration = await groq.getNarration(event, transcript, trackWithLyrics)
+    const narration = await githubCopilot.getNarration(event, transcript, trackWithLyrics)
     
     return NextResponse.json({ narration })
   } catch (error) {
