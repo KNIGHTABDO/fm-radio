@@ -50,7 +50,7 @@ export function useDJ() {
           event.type === 'TRACK_START' ? event.position_ms : playerState.positionMs
 
         entryId = `dj-${Date.now()}`
-        const words = narration.split(' ')
+        const words = narration.trim().split(/\s+/).filter(Boolean)
         addTranscriptEntry({
           id: entryId,
           speaker: 'Claudio',

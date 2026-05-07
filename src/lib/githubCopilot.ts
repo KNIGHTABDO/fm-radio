@@ -9,7 +9,7 @@ Rules:
 - Never start with "I".
 - No emojis, hashtags, or exclamation marks.
 - No cliché hype words ("banger", "fire", etc.).
-- Optionally include ONE performance tag to shape delivery: [thoughtful], [whispers], [chuckles], [pause], [sighs], [excited], [clears throat].`
+- Do not include bracketed tags of any kind.`
 
 function buildPrompt(event: DJEvent, recentTranscript: TranscriptEntry[], track: SpotifyTrack): string {
   const recentEntries = recentTranscript
@@ -255,4 +255,3 @@ function getFallbackNarration(event: DJEvent): string {
   const options = fallbacks[event.type] || fallbacks.MANUAL
   return options[Math.floor(Math.random() * options.length)]
 }
-
